@@ -34,4 +34,10 @@ int main(int argc, char *argv[])
 					TEEC_NONE, TEEC_NONE);
 	op.params[0].tmpref.size = sizeof(pubkey);
 	op.params[0].tmpref.buffer = pubkey;
+
+	TEEC_CloseSession(&sess);
+
+	TEEC_FinalizeContext(&ctx);
+
+	return 0;
 }
