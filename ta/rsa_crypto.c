@@ -5,6 +5,10 @@
 #include "../types.h"
 #include "crypto.h"
 
+#define RSA_KEY_SIZE 1024
+#define MAX_PLAIN_LEN_1024 86 // (1024/8) - 42 (padding)
+#define RSA_CIPHER_LEN_1024 (RSA_KEY_SIZE / 8)
+
 static int warp_asym_op(TEE_ObjectHandle key,
 			TEE_OperationMode mode,
 			uint32_t alg,
@@ -23,13 +27,13 @@ static int warp_asym_op(TEE_ObjectHandle key,
 
 	ret = TEE_AllocateOperation(&handle, alg, mode, info.maxObjectSize);
 	if (ret != TEE_SUCCESS) {
-		PRI_FAIL("Failed to alloc operation handle : 0x%x", ret);
+		EMSG("Failed to alloc operation handle : 0x%x", ret);
 		goto err;
 	}
 
 	ret = TEE_SetOperationKey(handle, key);
 	if (ret != TEE_SUCCESS) {
-		PRI_FAIL("Failed to set key : 0x%x", ret);
+		EMSG("Failed to set key : 0x%x", ret);
 		goto err;
 	}
 
@@ -38,7 +42,7 @@ static int warp_asym_op(TEE_ObjectHandle key,
 		ret = TEE_AsymmetricEncrypt(handle, params, paramCount,
 					    in_chunk, in_chunk_len, out_chunk, out_chunk_len);
 		if (ret != TEE_SUCCESS) {
-			PRI_FAIL("Encrypt failed : 0x%x", ret);
+			EMSG("Encrypt failed : 0x%x", ret);
 			goto err;
 		}
 
@@ -47,7 +51,7 @@ static int warp_asym_op(TEE_ObjectHandle key,
 		ret = TEE_AsymmetricDecrypt(handle, params, paramCount,
 					    in_chunk, in_chunk_len, out_chunk, out_chunk_len);
 		if (ret != TEE_SUCCESS) {
-			PRI_FAIL("Decrypt failed : 0x%x", ret);
+			EMSG("Decrypt failed : 0x%x", ret);
 			goto err;
 		}
 
@@ -63,23 +67,50 @@ err:
 	return 1;
 }
 
-TEE_Result RSA_Create_Key_Par() {
+TEE_Result RSA_Create_Key_Pair(void *session, uint32_t param_types,
+TEE_Param params[4]) {
 	TEE_Result ret;
 	TEE_ObjectHandle rsa_keypair = (TEE_ObjectHandle)NULL;
-	size_t key_size = 1024;
+	size_t key_size = RSA_KEY_SIZE;
 	uint32_t rsa_alg = TEE_ALG_RSAES_PKCS1_V1_5;
 	char *plain_msg = "TEST";
 	uint32_t fn_ret = 1; /* Initialized error return */
 
+	const uint32_t exp_param_types =
+		TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
+				TEE_PARAM_TYPE_MEMREF_OUTPUT,
+				TEE_PARAM_TYPE_NONE,
+				TEE_PARAM_TYPE_NONE);
+
+	/* Safely get the invocation parameters */
+	if (param_types != exp_param_types)
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	uint32_t plain_len = MAX_PLAIN_LEN_1024;
+	uint32_t cipher_len = RSA_CIPHER_LEN_1024;
+	uint32_t dec_plain_len = RSA_CIPHER_LEN_1024;
+
+	void *plain = NULL;
+	void *cipher = NULL;
+	void *dec_plain = NULL;
+
+	plain = TEE_Malloc(plain_len, 0);
+	cipher = TEE_Malloc(cipher_len, 0);
+	dec_plain = TEE_Malloc(dec_plain_len, 0);
+	if (!plain || !cipher || !dec_plain) {
+		EMSG("Out of memory.");
+		goto err;
+	}
+
 	ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_KEYPAIR, key_size, &rsa_keypair);
 	if (ret != TEE_SUCCESS) {
-		DMSG("Failed to alloc transient object handle : 0x%x", ret);
+		EMSG("Failed to alloc transient object handle : 0x%x", ret);
 		goto err;
 	}
 
 	ret = TEE_GenerateKey(rsa_keypair, key_size, (TEE_Attribute *)NULL, 0);
 	if (ret != TEE_SUCCESS) {
-		DMSG("Generate key failure : 0x%x", ret);
+		EMSG("Generate key failure : 0x%x", ret);
 		goto err;
 	}
 
@@ -140,7 +171,7 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 	case TA_RSA_CMD_DEC:
 		return reset_aes_iv(session, param_types, params);
 	case TA_RSA_CMD_CIPHER:
-		return cipher_buffer(session, param_types, params);
+		return RSA_Create_Key_Pair(session, param_types, params);
 	default:
 		EMSG("Command ID 0x%x is not supported", cmd);
 		return TEE_ERROR_NOT_SUPPORTED;
