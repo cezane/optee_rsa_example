@@ -1,4 +1,4 @@
-project (aes C)
+project (rsa C)
 
 set (SRC host/main.c)
 

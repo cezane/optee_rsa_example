@@ -28,7 +28,7 @@ void prepare_ta_session(struct ta_attrs *ta)
 		errx(1, "TEEC_InitializeContext failed with code 0x%x", res);
 
 	/* Open a session with the TA */
-	res = TEEC_OpenSession(&ctx->ctx, &ta->sess, &uuid,
+	res = TEEC_OpenSession(&ta->ctx, &ta->sess, &uuid,
 			       TEEC_LOGIN_PUBLIC, NULL, NULL, &origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
@@ -65,9 +65,9 @@ void rsa_encrypt(struct ta_attrs *ta, char *in, size_t in_sz, char *out, size_t 
 
 int main(int argc, char *argv[])
 {
-	ta_attrs ta;
-	TEEC_Operation op;
-	TEEC_Result res;
+	struct ta_attrs ta;
+//	TEEC_Operation op;
+//	TEEC_Result res;
 	char clear[RSA_MAX_PLAIN_LEN_1024];
 	char ciph[RSA_CIPHER_LEN_1024];
 	//declare/initialize my variables
@@ -75,13 +75,17 @@ int main(int argc, char *argv[])
 	
 	prepare_ta_session(&ta);
 	
+	printf("\nType something to be encrypted and decrypted in the TA:\n");
+	fflush(stdin); //setbuf(stdin, NULL);
+	fgets(clear, sizeof(clear), stdin);
+
 	rsa_encrypt(&ta, clear, RSA_MAX_PLAIN_LEN_1024, ciph, RSA_CIPHER_LEN_1024);
 
 	//Register the RSA public key 
-	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_NONE,
+/*	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_NONE,
 					TEEC_NONE, TEEC_NONE);
 	op.params[0].tmpref.size = sizeof(pubkey);
-	op.params[0].tmpref.buffer = pubkey;
+	op.params[0].tmpref.buffer = pubkey;*/
 
 	terminate_tee_session(&ta);
 	return 0;

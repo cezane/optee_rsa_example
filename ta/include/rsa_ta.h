@@ -7,8 +7,8 @@
 
 /* The function ID(s) implemented in this TA */
 #define TA_RSA_CMD_REGISTER_PUB_KEY	0
-#define TA_RSA_CMD_ENCRYPT_DATA		1
-#define TA_RSA_CMD_DECRYPT_DATA		2
+#define TA_RSA_CMD_ENCRYPT		1
+#define TA_RSA_CMD_DECRYPT		2
 
 #endif
 

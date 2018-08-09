@@ -9,20 +9,9 @@
 #define MAX_PLAIN_LEN_1024 86 // (1024/8) - 42 (padding)
 #define RSA_CIPHER_LEN_1024 (RSA_KEY_SIZE / 8)
 
-static int warp_asym_op(TEE_ObjectHandle key,
-			TEE_OperationMode mode,
-			uint32_t alg,
-			TEE_Attribute *params,
-			uint32_t paramCount,
-			void *in_chunk,
-			uint32_t in_chunk_len,
-			void *out_chunk,
-			uint32_t *out_chunk_len) {
-
-	TEE_Result ret = TEE_SUCCESS;
-	TEE_OperationHandle handle = (TEE_OperationHandle)NULL;
+void prepare_rsa_operation(TEE_OperationHandle *handle, uint32_t alg, TEE_OperationMode mode, TEE_ObjectHandle key) {
+	
 	TEE_ObjectInfo info;
-
 	TEE_GetObjectInfo(key, &info);
 
 	ret = TEE_AllocateOperation(&handle, alg, mode, info.maxObjectSize);
@@ -36,6 +25,21 @@ static int warp_asym_op(TEE_ObjectHandle key,
 		EMSG("Failed to set key : 0x%x", ret);
 		goto err;
 	}
+}
+
+static int warp_asym_op(TEE_ObjectHandle key,
+			TEE_OperationMode mode,
+			uint32_t alg,
+			TEE_Attribute *params,
+			uint32_t paramCount,
+			void *in_chunk,
+			uint32_t in_chunk_len,
+			void *out_chunk,
+			uint32_t *out_chunk_len) {
+
+	TEE_Result ret = TEE_SUCCESS;
+	TEE_OperationHandle handle = (TEE_OperationHandle)NULL;
+	prepare_rsa_operation(&handle, alg, mode, key);
 
 	if (mode == TEE_MODE_ENCRYPT) {
 
@@ -46,7 +50,7 @@ static int warp_asym_op(TEE_ObjectHandle key,
 			goto err;
 		}
 
-	} else if (mode == TEE_MODE_DECRYPT) {
+/*	} else if (mode == TEE_MODE_DECRYPT) {
 
 		ret = TEE_AsymmetricDecrypt(handle, params, paramCount,
 					    in_chunk, in_chunk_len, out_chunk, out_chunk_len);
@@ -57,7 +61,7 @@ static int warp_asym_op(TEE_ObjectHandle key,
 
 	} else {
 		goto err;
-	}
+	}*/
 
 	TEE_FreeOperation(handle);
 	return 0;
@@ -73,7 +77,6 @@ TEE_Param params[4]) {
 	TEE_ObjectHandle rsa_keypair = (TEE_ObjectHandle)NULL;
 	size_t key_size = RSA_KEY_SIZE;
 	uint32_t rsa_alg = TEE_ALG_RSAES_PKCS1_V1_5;
-	char *plain_msg = "TEST";
 	uint32_t fn_ret = 1; /* Initialized error return */
 
 	const uint32_t exp_param_types =
@@ -86,21 +89,22 @@ TEE_Param params[4]) {
 	if (param_types != exp_param_types)
 		return TEE_ERROR_BAD_PARAMETERS;
 
-	uint32_t plain_len = MAX_PLAIN_LEN_1024;
-	uint32_t cipher_len = RSA_CIPHER_LEN_1024;
-	uint32_t dec_plain_len = RSA_CIPHER_LEN_1024;
+	char *plain_txt = params[0].memref.buffer;
+	uint32_t plain_len = params[0].memref.size;
+	void *cipher = params[1].memref.buffer;
+	uint32_t cipher_len = params[1].memref.size;
 
-	void *plain = NULL;
-	void *cipher = NULL;
-	void *dec_plain = NULL;
+//	void *plain = NULL;
+//	void *cipher = NULL;
+//	void *dec_plain = NULL;
 
-	plain = TEE_Malloc(plain_len, 0);
-	cipher = TEE_Malloc(cipher_len, 0);
-	dec_plain = TEE_Malloc(dec_plain_len, 0);
-	if (!plain || !cipher || !dec_plain) {
-		EMSG("Out of memory.");
-		goto err;
-	}
+//	plain = TEE_Malloc(plain_len, 0);
+//	cipher = TEE_Malloc(cipher_len, 0);
+//	dec_plain = TEE_Malloc(dec_plain_len, 0);
+//	if (!plain || !cipher || !dec_plain) {
+//		EMSG("Out of memory.");
+//		goto err;
+//	}
 
 	ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_KEYPAIR, key_size, &rsa_keypair);
 	if (ret != TEE_SUCCESS) {
@@ -114,6 +118,9 @@ TEE_Param params[4]) {
 		goto err;
 	}
 
+	if (warp_asym_op(rsa_keypair, TEE_MODE_ENCRYPT, rsa_alg, (TEE_Attribute *)NULL, 0,
+			 plain_txt, plain_len, &cipher, cipher_len))
+		goto err;
 
 err:
 	TEE_FreeTransientObject(rsa_keypair);
@@ -165,13 +172,14 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 					TEE_Param params[4]) {
 	switch (cmd) {
 	case TA_RSA_CMD_PREPARE:
-		return alloc_resources(session, param_types, params);
-	case TA_RSA_CMD_ENC:
-		return set_aes_key(session, param_types, params);
-	case TA_RSA_CMD_DEC:
-		return reset_aes_iv(session, param_types, params);
-	case TA_RSA_CMD_CIPHER:
+		//return alloc_resources(session, param_types, params);
+	case TA_RSA_CMD_ENCRYPT:
 		return RSA_Create_Key_Pair(session, param_types, params);
+		//return set_aes_key(session, param_types, params);
+	case TA_RSA_CMD_DECRYPT:
+//		return reset_aes_iv(session, param_types, params);
+	case TA_RSA_CMD_CIPHER:
+//		return RSA_Create_Key_Pair(session, param_types, params);
 	default:
 		EMSG("Command ID 0x%x is not supported", cmd);
 		return TEE_ERROR_NOT_SUPPORTED;
