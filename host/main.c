@@ -66,8 +66,6 @@ void rsa_encrypt(struct ta_attrs *ta, char *in, size_t in_sz, char *out, size_t 
 int main(int argc, char *argv[])
 {
 	struct ta_attrs ta;
-//	TEEC_Operation op;
-//	TEEC_Result res;
 	char clear[RSA_MAX_PLAIN_LEN_1024];
 	char ciph[RSA_CIPHER_LEN_1024];
 	//declare/initialize my variables
