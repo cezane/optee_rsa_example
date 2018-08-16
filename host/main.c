@@ -59,7 +59,7 @@ void rsa_encrypt(struct ta_attrs *ta, char *in, size_t in_sz, char *out, size_t 
 	res = TEEC_InvokeCommand(&ta->sess, TA_RSA_CMD_ENCRYPT,
 				 &op, &origin);
 	if (res != TEEC_SUCCESS)
-		errx(1, "TEEC_InvokeCommand(CIPHER) failed 0x%x origin 0x%x",
+		errx(1, "TEEC_InvokeCommand(TA_RSA_CMD_ENCRYPT) failed 0x%x origin 0x%x",
 			res, origin);
 }
 
