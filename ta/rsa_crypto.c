@@ -53,48 +53,29 @@ TEE_Result perform_op(struct rsa_session *sess,	TEE_OperationMode mode,	uint32_t
 		goto err;
 	}
 
-	/* TEE_ObjectInfo key_info;
-	ret = TEE_GetObjectInfo1(sess->key_handle, &key_info);
-	if (ret != TEE_SUCCESS) {
-		EMSG("TEE_GetObjectInfo1: %#" PRIx32, ret);
-		goto err;
-	}
+	if (mode == TEE_MODE_ENCRYPT) {
+		DMSG("Data to encrypt: %s", (char *) plain);
+		ret = TEE_AsymmetricEncrypt(sess->op_handle, params, paramCount,
+						plain, plain_len, cipher, cipher_len);
+		if (ret != TEE_SUCCESS) {
+			EMSG("Encrypt failed : 0x%x", ret);
+			goto err;
+		}
+		DMSG("Encrypted data: %s", (char *) cipher);
 
-	ret = TEE_AllocateOperation(&sess->op_handle, alg, mode, key_info.keySize); //info.maxObjectSize);
-	if (ret != TEE_SUCCESS) {
-		EMSG("Failed to alloc operation handle : 0x%x", ret);
-		goto err;
-	}
-	DMSG("========== Operation allocated successfully. ==========");
-
-	ret = TEE_SetOperationKey(sess->op_handle, sess->key_handle);
-	if (ret != TEE_SUCCESS) {
-		EMSG("Failed to set key : 0x%x", ret);
-		goto err;
-	}
-    DMSG("========== Operation key already set. =========="); */
-
-//	if (mode == TEE_MODE_ENCRYPT) {
-	ret = TEE_AsymmetricEncrypt(sess->op_handle, params, paramCount,
-				    plain, plain_len, cipher, cipher_len);
-	if (ret != TEE_SUCCESS) {
-		EMSG("Encrypt failed : 0x%x", ret);
-		goto err;
-	}
-
-	DMSG("Encrypted data: %s", (char *) cipher);
-/*	} else if (mode == TEE_MODE_DECRYPT) {
-
-		ret = TEE_AsymmetricDecrypt(handle, params, paramCount,
-					    in_chunk, in_chunk_len, out_chunk, out_chunk_len);
+	} else if (mode == TEE_MODE_DECRYPT) {
+		DMSG("Data to decrypt: %s", (char *) cipher);
+		ret = TEE_AsymmetricDecrypt(sess->op_handle, params, paramCount,
+				    cipher, cipher_len, plain, plain_len);
 		if (ret != TEE_SUCCESS) {
 			EMSG("Decrypt failed : 0x%x", ret);
 			goto err;
 		}
+		DMSG("Decrypted data: %s", (char *) plain);
 
 	} else {
 		goto err;
-	}*/
+	}
 
 err:
 	TEE_FreeOperation(sess->op_handle);
@@ -103,13 +84,7 @@ err:
 
 //TODO a "prepare" for generating rsa key pair and associating it with the session
 
-TEE_Result RSA_Create_Key_Pair(void *session, uint32_t param_types, TEE_Param params[4]) {
-	TEE_Result ret;
-	size_t key_size = RSA_KEY_SIZE;
-	uint32_t rsa_alg = TEE_ALG_RSAES_PKCS1_V1_5;
-	struct rsa_session *sess = (struct rsa_session *)session;
-	sess->key_handle = (TEE_ObjectHandle)NULL;
-	
+TEE_Result check_params(uint32_t param_types) {
 	const uint32_t exp_param_types =
 		TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
 				TEE_PARAM_TYPE_MEMREF_OUTPUT,
@@ -119,49 +94,74 @@ TEE_Result RSA_Create_Key_Pair(void *session, uint32_t param_types, TEE_Param pa
 	/* Safely get the invocation parameters */
 	if (param_types != exp_param_types)
 		return TEE_ERROR_BAD_PARAMETERS;
+	return TEE_SUCCESS;
+}
 
-	void *plain_txt = params[0].memref.buffer;
-	size_t plain_len = params[0].memref.size;
-	void *cipher = params[1].memref.buffer;
-	size_t cipher_len = params[1].memref.size;
-
-//	void *plain = NULL;
-//	void *cipher = NULL;
-//	void *dec_plain = NULL;
-
-//	plain = TEE_Malloc(plain_len, 0);
-//	cipher = TEE_Malloc(cipher_len, 0);
-//	dec_plain = TEE_Malloc(dec_plain_len, 0);
-//	if (!plain || !cipher || !dec_plain) {
-//		EMSG("Out of memory.");
-//		goto err;
-//	}
-
-	ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_KEYPAIR, key_size, &sess->key_handle);// &sess->key_handle);
+TEE_Result RSA_create_key_pair(void *session) {
+	TEE_Result ret;
+	size_t key_size = RSA_KEY_SIZE;
+	struct rsa_session *sess = (struct rsa_session *)session;
+	// sess->key_handle = (TEE_ObjectHandle)NULL;
+	
+	ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_KEYPAIR, key_size, &sess->key_handle);
 	if (ret != TEE_SUCCESS) {
 		EMSG("Failed to alloc transient object handle: 0x%x", ret);
-		goto err;
+		return ret;
 	}
 	DMSG("========== Transient object allocated. ==========");
 
 	ret = TEE_GenerateKey(sess->key_handle, key_size, (TEE_Attribute *)NULL, 0);
 	if (ret != TEE_SUCCESS) {
 		EMSG("Generate key failure: 0x%x", ret);
-		goto err;
+		return ret;
 	}
 	DMSG("========== Keys generated. ==========");
+	return ret;
+}
+
+TEE_Result RSA_encrypt(void *session, uint32_t param_types, TEE_Param params[4]) {
+	TEE_Result ret;
+	uint32_t rsa_alg = TEE_ALG_RSAES_PKCS1_V1_5;
+	struct rsa_session *sess = (struct rsa_session *)session;
+
+	if (check_params(param_types) != TEE_SUCCESS)
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	void *plain_txt = params[0].memref.buffer;
+	size_t plain_len = params[0].memref.size;
+	void *cipher = params[1].memref.buffer;
+	size_t cipher_len = params[1].memref.size;
 
 	ret = perform_op(sess, TEE_MODE_ENCRYPT, rsa_alg, (TEE_Attribute *)NULL, 0,
 			 plain_txt, plain_len, cipher, &cipher_len);
 	if (ret != TEE_SUCCESS) {
 		EMSG("Failed to encrypt the passed buffer: 0x%x", ret);
-		goto err;
+		return ret;
 	}
-
 	DMSG("==========Encryption successfully==========");
+	return ret;
+}
 
-err:
-	TEE_FreeTransientObject(sess->key_handle);
+TEE_Result RSA_decrypt(void *session, uint32_t param_types, TEE_Param params[4]) {
+	TEE_Result ret;
+	uint32_t rsa_alg = TEE_ALG_RSAES_PKCS1_V1_5;
+	struct rsa_session *sess = (struct rsa_session *)session;
+
+	if (check_params(param_types) != TEE_SUCCESS)
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	void *plain_txt = params[1].memref.buffer;
+	size_t plain_len = params[1].memref.size;
+	void *cipher = params[0].memref.buffer;
+	size_t cipher_len = params[0].memref.size;
+
+	ret = perform_op(sess, TEE_MODE_DECRYPT, rsa_alg, (TEE_Attribute *)NULL, 0,
+			 plain_txt, plain_len, cipher, &cipher_len);
+	if (ret != TEE_SUCCESS) {
+		EMSG("Failed to decrypt the passed buffer: 0x%x", ret);
+		return ret;
+	}
+	DMSG("==========Decryption successfully==========");
 	return ret;
 }
 
@@ -210,14 +210,14 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 					uint32_t param_types,
 					TEE_Param params[4]) {
 	switch (cmd) {
-//	case TA_RSA_CMD_PREPARE:
-		//return alloc_resources(session, param_types, params);
+	case TA_RSA_CMD_GENKEYS:
+		return RSA_create_key_pair(session);
 	case TA_RSA_CMD_ENCRYPT:
 		DMSG("*********************RSA Encrypt Command!***********************");
-		return RSA_Create_Key_Pair(session, param_types, params);
+		return RSA_encrypt(session, param_types, params);
 		//return set_aes_key(session, param_types, params);
 	case TA_RSA_CMD_DECRYPT:
-//		return reset_aes_iv(session, param_types, params);
+		return RSA_decrypt(session, param_types, params);
 //	case TA_RSA_CMD_CIPHER:
 //		return RSA_Create_Key_Pair(session, param_types, params);
 	default:

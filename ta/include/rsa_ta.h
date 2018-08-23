@@ -6,9 +6,9 @@
 		{ 0xac, 0x25, 0x07, 0xd1, 0xbf, 0xdb, 0xc1, 0x12 } }
 
 /* The function ID(s) implemented in this TA */
-#define TA_RSA_CMD_REGISTER_PUB_KEY	0
-#define TA_RSA_CMD_ENCRYPT		1
-#define TA_RSA_CMD_DECRYPT		2
+#define TA_RSA_CMD_GENKEYS	0
+#define TA_RSA_CMD_ENCRYPT	1
+#define TA_RSA_CMD_DECRYPT	2
 
 #endif
 
