@@ -101,7 +101,6 @@ TEE_Result RSA_create_key_pair(void *session) {
 	TEE_Result ret;
 	size_t key_size = RSA_KEY_SIZE;
 	struct rsa_session *sess = (struct rsa_session *)session;
-	// sess->key_handle = (TEE_ObjectHandle)NULL;
 	
 	ret = TEE_AllocateTransientObject(TEE_TYPE_RSA_KEYPAIR, key_size, &sess->key_handle);
 	if (ret != TEE_SUCCESS) {
@@ -210,18 +209,18 @@ TEE_Result TA_InvokeCommandEntryPoint(void *session,
 					uint32_t param_types,
 					TEE_Param params[4]) {
 	switch (cmd) {
-	case TA_RSA_CMD_GENKEYS:
-		return RSA_create_key_pair(session);
-	case TA_RSA_CMD_ENCRYPT:
-		DMSG("*********************RSA Encrypt Command!***********************");
-		return RSA_encrypt(session, param_types, params);
-		//return set_aes_key(session, param_types, params);
-	case TA_RSA_CMD_DECRYPT:
-		return RSA_decrypt(session, param_types, params);
-//	case TA_RSA_CMD_CIPHER:
-//		return RSA_Create_Key_Pair(session, param_types, params);
-	default:
-		EMSG("Command ID 0x%x is not supported", cmd);
-		return TEE_ERROR_NOT_SUPPORTED;
+		case TA_RSA_CMD_GENKEYS:
+			return RSA_create_key_pair(session);
+		case TA_RSA_CMD_ENCRYPT:
+			DMSG("*********************RSA Encrypt Command!***********************");
+			return RSA_encrypt(session, param_types, params);
+			//return set_aes_key(session, param_types, params);
+		case TA_RSA_CMD_DECRYPT:
+			return RSA_decrypt(session, param_types, params);
+	//	case TA_RSA_CMD_CIPHER:
+	//		return RSA_Create_Key_Pair(session, param_types, params);
+		default:
+			EMSG("Command ID 0x%x is not supported", cmd);
+			return TEE_ERROR_NOT_SUPPORTED;
 	}
 }

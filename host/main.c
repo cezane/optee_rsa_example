@@ -32,7 +32,6 @@ void prepare_ta_session(struct ta_attrs *ta)
 			       TEEC_LOGIN_PUBLIC, NULL, NULL, &origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x", res, origin);
-	printf("\n=====1 TA address: %p - ctx addr: %p - sess addr: %p\n", ta, (void *) &ta->ctx, (void *) &ta->sess);
 }
 
 void terminate_tee_session(struct ta_attrs *ta)
@@ -42,11 +41,11 @@ void terminate_tee_session(struct ta_attrs *ta)
 }
 
 void prepare_op(TEEC_Operation *op, char *in, size_t in_sz, char *out, size_t out_sz) {
-	memset(&op, 0, sizeof(op));
+	memset(op, 0, sizeof(*op));
 
 	op->paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT,
-					 TEEC_MEMREF_TEMP_OUTPUT,
-					 TEEC_NONE, TEEC_NONE);
+					 		TEEC_MEMREF_TEMP_OUTPUT,
+					 		TEEC_NONE, TEEC_NONE);
 	op->params[0].tmpref.buffer = in;
 	op->params[0].tmpref.size = in_sz;
 	op->params[1].tmpref.buffer = out;
@@ -55,10 +54,9 @@ void prepare_op(TEEC_Operation *op, char *in, size_t in_sz, char *out, size_t ou
 
 void rsa_gen_keys(struct ta_attrs *ta) {
 	TEEC_Result res;
-	uint32_t origin;
-	printf("\n=====3 TA address: %p - ctx addr: %p - sess addr: %p\n", ta, (void *) &ta->ctx, (void *) &ta->sess);
-	res = TEEC_InvokeCommand(&ta->sess, TA_RSA_CMD_GENKEYS, NULL, &origin);
-	if (res != TEEC_SUCCESS || origin != TEEC_ORIGIN_TRUSTED_APP)
+
+	res = TEEC_InvokeCommand(&ta->sess, TA_RSA_CMD_GENKEYS, NULL, NULL);
+	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InvokeCommand(TA_RSA_CMD_GENKEYS) failed %#x", res);
 	printf("\nKeys already generated. %u\n", res);
 }
@@ -107,7 +105,6 @@ int main(int argc, char *argv[])
 	//pubkey
 	
 	prepare_ta_session(&ta);
-	printf("\n=====2 TA address: %p - ctx addr: %p - sess addr: %p\n", &ta, (void *) &ta.ctx, (void *) &ta.sess);
 	printf("\nType something to be encrypted and decrypted in the TA:\n");
 	fflush(stdin); //setbuf(stdin, NULL);
 	fgets(clear, sizeof(clear), stdin);
