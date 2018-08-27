@@ -74,9 +74,7 @@ void rsa_encrypt(struct ta_attrs *ta, char *in, size_t in_sz, char *out, size_t 
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InvokeCommand(TA_RSA_CMD_ENCRYPT) failed 0x%x origin 0x%x",
 			res, origin);
-	printf("\nThe text sent was encrypted: %s\n", (char *)op.params[1].tmpref.buffer);
-	printf("\nThe text in 'out': %s\n", out);
-	memcpy(out, op.params[1].tmpref.buffer, sizeof(op.params[1].tmpref.buffer));
+	printf("\nThe text sent was encrypted: %s\n", out);
 }
 
 void rsa_decrypt(struct ta_attrs *ta, char *in, size_t in_sz, char *out, size_t out_sz)
@@ -87,17 +85,15 @@ void rsa_decrypt(struct ta_attrs *ta, char *in, size_t in_sz, char *out, size_t 
 
 	prepare_op(&op, in, in_sz, out, out_sz);
 
-	res = TEEC_InvokeCommand(&ta->sess, TA_RSA_CMD_DECRYPT,
-				 &op, &origin);
+	res = TEEC_InvokeCommand(&ta->sess, TA_RSA_CMD_DECRYPT, &op, &origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InvokeCommand(TA_RSA_CMD_DECRYPT) failed 0x%x origin 0x%x",
 			res, origin);
 	printf("\nThe text sent was decrypted: %s\n", (char *)op.params[1].tmpref.buffer);
-	memcpy(out, op.params[1].tmpref.buffer, sizeof(op.params[1].tmpref.buffer));
 }
 
 int main(int argc, char *argv[])
-{
+{//TODO add a good print function (fflush)
 	struct ta_attrs ta;
 	char clear[RSA_MAX_PLAIN_LEN_1024];
 	char ciph[RSA_CIPHER_LEN_1024];
@@ -110,7 +106,6 @@ int main(int argc, char *argv[])
 	fgets(clear, sizeof(clear), stdin);
 
 	rsa_gen_keys(&ta);
-	printf("============LETS ENCRYPT NOW!============");
 	rsa_encrypt(&ta, clear, RSA_MAX_PLAIN_LEN_1024, ciph, RSA_CIPHER_LEN_1024);
 	rsa_decrypt(&ta, ciph, RSA_CIPHER_LEN_1024, clear, RSA_MAX_PLAIN_LEN_1024);
 	//Register the RSA public key 
