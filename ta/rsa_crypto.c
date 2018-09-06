@@ -180,9 +180,12 @@ void TA_CloseSessionEntryPoint(void *session)
 	DMSG("Session %p: release session", session);
 	sess = (struct rsa_session *)session;
 
-	/* Release the session resources */
-	TEE_FreeTransientObject(sess->key_handle);
-	TEE_FreeOperation(sess->op_handle);
+	/* Release the session resources
+	   These tests are mandatories to avoid PANIC TA (TEE_HANDLE_NULL) */
+	if (sess->key_handle != TEE_HANDLE_NULL)
+		TEE_FreeTransientObject(sess->key_handle);
+	if (sess->op_handle != TEE_HANDLE_NULL)
+		TEE_FreeOperation(sess->op_handle);
 	TEE_Free(sess);
 }
 

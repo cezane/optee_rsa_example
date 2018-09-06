@@ -93,14 +93,14 @@ void rsa_decrypt(struct ta_attrs *ta, char *in, size_t in_sz, char *out, size_t 
 }
 
 int main(int argc, char *argv[])
-{
+{//TODO add a good print function (fflush)
 	struct ta_attrs ta;
 	char clear[RSA_MAX_PLAIN_LEN_1024];
 	char ciph[RSA_CIPHER_LEN_1024];
-		
+	
 	prepare_ta_session(&ta);
 	printf("\nType something to be encrypted and decrypted in the TA:\n");
-	fflush(stdin);
+	fflush(stdin); //setbuf(stdin, NULL);
 	fgets(clear, sizeof(clear), stdin);
 
 	rsa_gen_keys(&ta);
